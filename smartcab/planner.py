@@ -31,6 +31,7 @@ class RoutePlanner(object):
         dx = delta_a[0] if abs(delta_a[0]) < abs(delta_b[0]) else delta_b[0]
         dy = delta_a[1] if abs(delta_a[1]) < abs(delta_b[1]) else delta_b[1]
 
+ 
         # First check if destination is at location
         if dx == 0 and dy == 0:
             return None

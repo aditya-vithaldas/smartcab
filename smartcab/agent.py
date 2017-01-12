@@ -5,7 +5,7 @@ from planner import RoutePlanner
 from simulator import Simulator
 import numpy as np
 from collections import defaultdict
-
+import time
 #This is the primary entity that we are dealing with here. It is the "agent" or the car which is going to act based on the input and feedback that it gets 
 #from the environment. 
 #Broadly, the sequence of actions that it going through are -->
@@ -32,6 +32,9 @@ class LearningAgent(Agent):
         #E.g. if the exploration is 1, 100% of actions would be random. but on every round, this reduces byt he decay, which would reduce the randomization, and exploration as well
         self.alpha = alpha       # Learning factor
 
+        self.trial_num = 0
+        self.num_times_in_learn = 0
+        self.arrtest = []
         ###########
         ## TO DO ##
         ###########
@@ -53,13 +56,24 @@ class LearningAgent(Agent):
         # Update additional class parameters as needed
         # If 'testing' is True, set epsilon and alpha to 0
         # since in this case, all actions are random, and there is no "learning" or "Testing"
+
         
         if testing == True:
-            self.epsilon = 0
-            self.alpha = 0
+            self.epsilon = 0.0
+            self.alpha = 0.0
         else:
-            self.epsilon = self.epsilon - 0.1*self.epsilon #decay factor is 10%. epsilion would keep going till it hits the tolerance, after which it stops?
-            self.alpha = 0.5
+            #self.alpha = 0.5
+            #self.alpha = self.alpha * 0.95
+            #self.epsilon = self.epsilon - 0.05*self.epsilon
+            
+            self.epsilon = self.epsilon - 0.005
+            self.alpha = self.epsilon / 2
+            self.trial_num = self.trial_num + 1
+            
+            print str(self.trial_num) + " : this is trial number"
+            print "%.2f" % round(self.epsilon,2) 
+
+            
         return None
 
     def build_state(self):
@@ -75,10 +89,13 @@ class LearningAgent(Agent):
         ########### 
         ## TO DO ##
         ###########
+        print inputs
         print type(waypoint)
-        print type(frozenset(inputs))
+        print type(inputs)
+        print str(inputs)
         # Set 'state' as a tuple of relevant data for the agent        
-        state = (waypoint, frozenset(inputs)) 
+        state = (waypoint, str(inputs)) 
+        #exit()
         #, removing the deadline from the state to avoid it from getting to complicated, and requiring the amount of data to be exponentially higher
         return state
 
@@ -124,10 +141,10 @@ class LearningAgent(Agent):
     def choose_action(self, state):
         """ The choose_action function is called when the agent is asked to choose
             which action to take, based on the 'state' the smartcab is in. """
-        if self.learning==False:
-            action = random.choice(self.env.valid_actions)
-            return action
         # Set the agent state and default action
+        print state
+        print "in choose action"
+        #exit()
         self.state = state
         self.next_waypoint = self.planner.next_waypoint()
         r = random.randint(1, 100)
@@ -137,6 +154,7 @@ class LearningAgent(Agent):
         if r < self.epsilon*100:
             #random number
             action = random.choice(self.env.valid_actions)
+            #action = self.next_waypoint
         else:
             print state
             print self.Q
@@ -149,7 +167,7 @@ class LearningAgent(Agent):
                     possact.append(k)
             #print possact
             action = random.choice(possact)
-            
+            #action = self.next_waypoint
         print "action is " + str(action)
         #
         ########### 
@@ -173,19 +191,21 @@ class LearningAgent(Agent):
         #   Use only the learning rate 'alpha' (do not use the discount factor 'gamma')
         if self.learning == False:
             return
+        self.num_times_in_learn = self.num_times_in_learn + 1
+        if state not in self.arrtest:
+            self.arrtest.append(state)
         print "in learn"
+        print state
+        print type(state)
+        #exit()
         if state in self.Q:
             if action in self.Q[state]:
                 print "in the loop"
-                #print state
-                #print action
-                #if action == None:
-                #    action = "None"
                 print self.Q
-                self.Q[state][action] = reward*(1-self.alpha) + self.Q[state][action]
+                self.Q[state][action] = reward*(self.alpha) + self.Q[state][action] * (1-self.alpha)
             else:
-                self.Q[state][action] = reward*(1-self.alpha)
-
+                self.Q[state][action] = reward*(self.alpha)
+       
         return
 
 
@@ -196,7 +216,7 @@ class LearningAgent(Agent):
 
         state = self.build_state()          # Get current state
         print "before create"
-        print self.Q[state]
+        #print self.Q[state]
         self.createQ(state)                 # Create 'state' in Q-table
         print "After create"
         print self.Q[state]
@@ -219,7 +239,7 @@ def run():
     #   verbose     - set to True to display additional output from the simulation
     #   num_dummies - discrete number of dummy agents in the environment, default is 100
     #   grid_size   - discrete number of intersections (columns, rows), default is (8, 6)
-    env = Environment(verbose=True)
+    env = Environment(verbose=True, num_dummies=100)
     
     ##############
     # Create the driving agent
@@ -227,7 +247,7 @@ def run():
     #   learning   - set to True to force the driving agent to use Q-learning
     #    * epsilon - continuous value for the exploration factor, default is 1
     #    * alpha   - continuous value for the learning rate, default is 0.5
-    agent = env.create_agent(LearningAgent, learning=True, epsilon=1)
+    agent = env.create_agent(LearningAgent, learning=True, epsilon=1, alpha=.5)
     
     ##############
     # Follow the driving agent
@@ -248,8 +268,9 @@ def run():
     # Flags:
     #   tolerance  - epsilon tolerance before beginning testing, default is 0.05 
     #   n_test     - discrete number of testing trials to perform, default is 0
-    n_test = 10
-    sim.run(n_test=20)
+    sim.run(n_test=10, tolerance=0.01)
+
+
 
 
 if __name__ == '__main__':
